@@ -5,14 +5,22 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- Verificaciones Iniciales ---
+const NIM_API_KEY = process.env.NIM_API_KEY;
+if (!NIM_API_KEY) {
+  console.error("Error: La variable de entorno NIM_API_KEY no está definida.");
+  process.exit(1); // <<< MEJORA: Falla rápido si falta la API key
+}
+
 app.use(cors());
 app.use(express.json());
 
 const NIM_API_BASE = process.env.NIM_API_BASE || 'https://integrate.api.nvidia.com/v1';
-const NIM_API_KEY = process.env.NIM_API_KEY;
 
 const MODEL_MAPPING = {
   'deepseek-r1-0528': 'deepseek-ai/deepseek-r1-0528'
+  // Puedes añadir más modelos aquí
+  // 'otro-modelo-openai': 'otro-modelo-nim'
 };
 
 app.get('/health', (req, res) => {
@@ -23,7 +31,7 @@ app.get('/v1/models', (req, res) => {
   const models = Object.keys(MODEL_MAPPING).map(model => ({
     id: model,
     object: 'model',
-    created: Date.now(),
+    created: Math.floor(Date.now() / 1000), // <<< MEJORA: Timestamp de Unix consistente
     owned_by: 'nvidia-nim-proxy'
   }));
   
@@ -35,16 +43,24 @@ app.get('/v1/models', (req, res) => {
 
 app.post('/v1/chat/completions', async (req, res) => {
   try {
-    const { model, messages, temperature, max_tokens, stream } = req.body;
+    const { model, ...openAIParams } = req.body; // <<< MEJORA: Captura flexible de parámetros
     
-    const nimModel = MODEL_MAPPING['deepseek-r1-0528'];
+    const nimModel = MODEL_MAPPING[model]; // <<< CORRECCIÓN: Mapeo dinámico del modelo
+    
+    if (!nimModel) { // <<< CORRECCIÓN: Validación del modelo
+      return res.status(400).json({
+        error: {
+          message: `Model '${model}' is not supported by this proxy.`,
+          type: 'invalid_request_error',
+          code: 'model_not_found'
+        }
+      });
+    }
     
     const nimRequest = {
+      ...openAIParams,
       model: nimModel,
-      messages: messages,
-      temperature: temperature ,
-      max_tokens: max_tokens ,
-      stream: stream || false
+      stream: openAIParams.stream || false
     };
     
     const response = await axios.post(`${NIM_API_BASE}/chat/completions`, nimRequest, {
@@ -52,11 +68,11 @@ app.post('/v1/chat/completions', async (req, res) => {
         'Authorization': `Bearer ${NIM_API_KEY}`,
         'Content-Type': 'application/json'
       },
-      responseType: stream ? 'stream' : 'json'
+      responseType: nimRequest.stream ? 'stream' : 'json'
     });
     
-    if (stream) {
-      res.setHeader('Content-Type', 'text/plain');
+    if (nimRequest.stream) {
+      res.setHeader('Content-Type', 'text/event-stream'); // Más estándar para SSE
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       response.data.pipe(res);
@@ -65,7 +81,7 @@ app.post('/v1/chat/completions', async (req, res) => {
         id: `chatcmpl-${Date.now()}`,
         object: 'chat.completion',
         created: Math.floor(Date.now() / 1000),
-        model: model,
+        model: model, // Devuelve el modelo que el usuario solicitó
         choices: response.data.choices.map(choice => ({
           index: choice.index,
           message: choice.message,
@@ -86,7 +102,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     
     res.status(error.response?.status || 500).json({
       error: {
-        message: error.message || 'Internal server error',
+        message: error.response?.data?.error?.message || error.message || 'Internal server error',
         type: 'invalid_request_error',
         code: error.response?.status || 500
       }
@@ -97,7 +113,7 @@ app.post('/v1/chat/completions', async (req, res) => {
 app.all('*', (req, res) => {
   res.status(404).json({
     error: {
-      message: `Endpoint ${req.path} not found`,
+      message: `Endpoint ${req.path} not found on this proxy.`,
       type: 'invalid_request_error',
       code: 404
     }
