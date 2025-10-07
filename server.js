@@ -19,7 +19,7 @@ const NIM_API_BASE = process.env.NIM_API_BASE || 'https://integrate.api.nvidia.c
 
 const MODEL_MAPPING = {
   'deepseek-r1-0528': 'deepseek-ai/deepseek-r1-0528',
-  'deepseek-v3.1:' 'deepseek-ai/deepseek-v3.1'
+  'deepseek-v3.1': 'deepseek-ai/deepseek-v3.1'
   // Puedes añadir más modelos aquí
   // 'otro-modelo-openai': 'otro-modelo-nim'
 };
