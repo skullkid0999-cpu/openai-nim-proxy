@@ -125,4 +125,7 @@ app.all('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`OpenAI to NVIDIA NIM Proxy running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log('Request body:', req.body);
+  console.log('Mapped model:', nimModel);
+  console.error('Error details:', error);
 });
