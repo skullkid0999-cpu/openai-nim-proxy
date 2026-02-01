@@ -21,7 +21,8 @@ const MODEL_MAPPING = {
   'deepseek-r1-0528': 'deepseek-ai/deepseek-r1-0528',
   'deepseek-v3.1': 'deepseek-ai/deepseek-v3.1',
   'deepseek-v3.1-terminus': 'deepseek-ai/deepseek-v3.1-terminus',
-  'deepseek-v3.2': 'deepseek-ai/deepseek-v3.2'
+  'deepseek-v3.2': 'deepseek-ai/deepseek-v3.2',
+  'GLM 4.7': 'z-ai/glm4.7'
   // Puedes añadir más modelos aquí
   // 'otro-modelo-openai': 'otro-modelo-nim'
 };
